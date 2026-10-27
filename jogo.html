@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Editor de Labirinto</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --fg: #2a2a2a;
+      --card: #fff;
+      --wall: #2f3b52;
+      --path: #f9e9c8;
+      --line: #d9d2c0;
+      --acc: #e0603a;
+      --goal: #2e9e5b;
+      --bd: #cfc8b6;
+      box-sizing: border-box;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px)
+    }
+
+    @media (prefers-color-scheme:dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #001514;
+        --fg: #ece8dd;
+        --card: #154262;
+        --wall: #3f586e;
+        --path: #929982;
+        --line: black;
+        --bd: #A24936
+      }
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #17191f;
+      --fg: #ece8dd;
+      --card: #22252d;
+      --wall: #4a5a7c;
+      --path: #3a3528;
+      --line: #2c2f38;
+      --bd: #3b3f4a
+    }
+
+    html {
+      scroll-padding-top: env(safe-area-inset-top, 0px)
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      display: flex;
+      justify-content: center;
+      padding: 16px
+    }
+
+    main {
+      width: 100%;
+      max-width: 760px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.4rem
+    }
+
+    p.sub {
+      margin: 0;
+      opacity: .7;
+      font-size: .9rem
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--bd);
+      border-radius: 12px;
+      padding: 12px
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    button {
+      font: inherit;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--bd);
+      background: var(--card);
+      color: var(--fg);
+      cursor: pointer
+    }
+
+    button.on {
+      background: var(--acc);
+      border-color: var(--acc);
+      color: #fff
+    }
+
+    button:active {
+      transform: scale(.97)
+    }
+
+    label {
+      font-size: .85rem;
+      display: flex;
+      gap: 6px;
+      align-items: center
+    }
+
+    input[type=number] {
+      width: 60px;
+      padding: 6px;
+      border-radius: 6px;
+      border: 1px solid var(--bd);
+      background: var(--bg);
+      color: var(--fg);
+      font: inherit
+    }
+
+    #wrap {
+      overflow-x: auto;
+      display: flex;
+      justify-content: center
+    }
+
+    #grid {
+      display: grid;
+      gap: 1px;
+      background: var(--line);
+      border: 2px solid var(--line);
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      color: black;
+    }
+
+    .c {
+      width: var(--cs);
+      height: var(--cs);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: calc(var(--cs)*.55);
+      line-height: 1
+    }
+
+    .c.w {
+      background: var(--wall)
+    }
+
+    .c.p {
+      background: var(--path)
+    }
+
+    .c.g {
+      background: var(--goal)
+    }
+
+    .c .n {
+      font-size: calc(var(--cs)*.32);
+      opacity: .45;
+      font-family: ui-monospace, monospace
+    }
+
+    #grid.play .n {
+      display: none
+    }
+
+    #msg {
+      min-height: 1.4em;
+      font-weight: 600
+    }
+
+    textarea {
+      width: 100%;
+      height: 110px;
+      font-family: ui-monospace, monospace;
+      font-size: .85rem;
+      background: var(--bg);
+      color: var(--fg);
+      border: 1px solid var(--bd);
+      border-radius: 8px;
+      padding: 8px;
+      resize: vertical
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <div>
+      <h1>Editor de Labirinto</h1>
+      <p class="sub">Monte seu mapa (1 = parede, 0 = caminho) e leve o boneco até o outro lado.</p>
+    </div>
+
+    <div class="card row" id="modes">
+      <button id="bEdit" class="on">Editar</button>
+      <button id="bPlay">Jogar</button>
+      <span id="msg"></span>
+    </div>
+
+    <div class="card" id="tools">
+      <div class="row">
+        <button data-t="1" class="on">1 Parede</button>
+        <button data-t="0">0 Caminho</button>
+        <button data-t="s">Início</button>
+        <button data-t="e">Fim</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label>Linhas <input id="iR" type="number" min="5" max="25" value="11"></label>
+        <label>Colunas <input id="iC" type="number" min="5" max="31" value="15"></label>
+        <button id="bNew">Novo mapa</button>
+        <button id="bFill">Preencher paredes</button>
+        <button id="bRand">Gerar aleatório</button>
+      </div>
+    </div>
+
+    <div class="card" id="wrap">
+      <div id="grid"></div>
+    </div>
+    <div class="card">
+      <div class="row" style="margin-bottom:8px"><strong>Mapa em texto</strong>
+        <button id="bApply">Aplicar texto</button>
+        <button id="bCopy">Copiar</button>
+      </div>
+      <textarea id="txt" spellcheck="false"></textarea>
+    </div>
+  </main>
+
+  <script>
+    const $ = s => document.querySelector(s);
+    const gridEl = $('#grid'), msg = $('#msg'), txt = $('#txt');
+    let R = 11, C = 15, g = [], start, goal, tool = '1', mode = 'edit', player, moves = 0, won = false, paint = null;
+
+    function blank(r, c, v) {return Array.from({length: r}, () => Array(c).fill(v));}
+
+    function newMap(r, c) {
+      R = r; C = c; g = blank(R, C, 1);
+      start = {r: 1, c: 0}; goal = {r: R - 2, c: C - 1};
+      // caminho inicial simples
+      for (let x = 0; x < C; x++) g[1][x] = 0;
+      for (let y = 1; y <= R - 2; y++) g[y][C - 2] = 0;
+      g[goal.r][goal.c] = 0;
+      setMode('edit');
+    }
+
+    function randomMap() {
+      g = blank(R, C, 1);
+      // DFS em células ímpares
+      const st = [[1, 1]]; g[1][1] = 0;
+      while (st.length) {
+        const [y, x] = st[st.length - 1];
+        const n = [[-2, 0], [2, 0], [0, -2], [0, 2]].sort(() => Math.random() - .5)
+          .filter(([dy, dx]) => y + dy > 0 && y + dy < R - 1 && x + dx > 0 && x + dx < C - 1 && g[y + dy][x + dx] === 1);
+        if (!n.length) {st.pop(); continue;}
+        const [dy, dx] = n[0];
+        g[y + dy / 2][x + dx / 2] = 0; g[y + dy][x + dx] = 0;
+        st.push([y + dy, x + dx]);
+      }
+      start = {r: 1, c: 0}; g[1][0] = 0;
+      let gr = R - 2; if (gr % 2 === 0) gr--;
+      let gc = C - 2; if (gc % 2 === 0) gc--;
+      goal = {r: gr, c: C - 1}; g[gr][C - 1] = 0;
+      for (let x = gc; x < C; x++) g[gr][x] = 0;
+      setMode('edit');
+    }
+
+    function build() {
+      const w = Math.min(wrapW(), 760 - 50);
+      const cs = Math.max(14, Math.min(40, Math.floor((w - C) / C)));
+      gridEl.style.setProperty('--cs', cs + 'px');
+      gridEl.style.gridTemplateColumns = `repeat(${C}, ${cs}px)`;
+      gridEl.innerHTML = '';
+      for (let y = 0; y < R; y++) for (let x = 0; x < C; x++) {
+        const d = document.createElement('div');
+        d.dataset.r = y; d.dataset.c = x; gridEl.appendChild(d);
+      }
+      draw();
+    }
+    function wrapW() {return Math.min(window.innerWidth - 56, 700);}
+
+    function draw() {
+      gridEl.className = mode === 'play' ? 'play' : '';
+      const cells = gridEl.children;
+      for (let y = 0; y < R; y++) for (let x = 0; x < C; x++) {
+        const d = cells[y * C + x], v = g[y][x];
+        let cls = 'c ' + (v ? 'w' : 'p'), html = `<span class="n">${v}</span>`;
+        if (goal.r === y && goal.c === x) {cls = 'c g'; html = '🏁';}
+        if (mode === 'edit' && start.r === y && start.c === x) html = '🧍';
+        if (mode === 'play' && player.r === y && player.c === x) html = won ? '🎉' : '🧍';
+        d.className = cls; d.innerHTML = html;
+      }
+      txt.value = g.map(r => r.join(' ')).join('\n');
+    }
+
+    function edit(r, c) {
+      if (tool === 's') {g[r][c] = 0; start = {r, c};}
+      else if (tool === 'e') {g[r][c] = 0; goal = {r, c};}
+      else {
+        if (paint === null) paint = Number(tool);
+        if ((start.r === r && start.c === c) || (goal.r === r && goal.c === c)) return;
+        g[r][c] = paint;
+      }
+      draw();
+    }
+
+    function cellAt(e) {
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      return el && el.dataset && el.dataset.r !== undefined ? [+el.dataset.r, +el.dataset.c] : null;
+    }
+    gridEl.addEventListener('pointerdown', e => {
+      if (mode !== 'edit') return;
+      const p = cellAt(e); if (!p) return;
+      paint = null; gridEl.setPointerCapture(e.pointerId);
+      edit(...p); paint = tool === '0' ? 0 : tool === '1' ? 1 : -1;
+    });
+    gridEl.addEventListener('pointermove', e => {
+      if (mode !== 'edit' || paint === null || paint < 0 || !(e.buttons || e.pointerType === 'touch')) return;
+      const p = cellAt(e); if (p) edit(...p);
+    });
+    window.addEventListener('pointerup', () => paint = null);
+
+    // BFS: verifica se existe caminho do início ao fim
+    function solvable() {
+      const seen = blank(R, C, false), q = [[start.r, start.c]]; seen[start.r][start.c] = true;
+      while (q.length) {
+        const [y, x] = q.shift();
+        if (y === goal.r && x === goal.c) return true;
+        for (const [dy, dx] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const ny = y + dy, nx = x + dx;
+          if (ny >= 0 && ny < R && nx >= 0 && nx < C && !seen[ny][nx] && g[ny][nx] === 0) {seen[ny][nx] = true; q.push([ny, nx]);}
+        }
+      }
+      return false;
+    }
+
+    function setMode(m) {
+      if (m === 'play') {
+        if (!solvable()) {msg.textContent = 'Não existe caminho do início ao fim!'; return;}
+        player = {...start}; moves = 0; won = false; msg.textContent = 'Use WASD';
+      } else msg.textContent = '';
+      mode = m;
+      $('#bEdit').classList.toggle('on', m === 'edit');
+      $('#bPlay').classList.toggle('on', m === 'play');
+      $('#tools').style.display = m === 'edit' ? '' : 'none';
+      build();
+    }
+
+    function move(dy, dx) {
+      if (mode !== 'play' || won) return;
+      const y = player.r + dy, x = player.c + dx;
+      if (y < 0 || y >= R || x < 0 || x >= C || g[y][x] === 1) return;
+      player = {r: y, c: x}; moves++;
+      if (y === goal.r && x === goal.c) {won = true; msg.textContent = `Você venceu em ${moves} movimentos!`;}
+      draw();
+    }
+    const keys = {w: [-1, 0], s: [1, 0], a: [0, -1], d: [0, 1]};
+    window.addEventListener('keydown', e => {
+      if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+      const k = keys[e.key]; if (k) {e.preventDefault(); move(...k);}
+    });
+
+    document.querySelectorAll('#tools [data-t]').forEach(b => b.onclick = () => {
+      tool = b.dataset.t;
+      document.querySelectorAll('#tools [data-t]').forEach(x => x.classList.toggle('on', x === b));
+    });
+    $('#bEdit').onclick = () => setMode('edit');
+    $('#bPlay').onclick = () => setMode('play');
+    $('#bNew').onclick = () => {
+      const r = Math.max(5, Math.min(25, +$('#iR').value || 11)), c = Math.max(5, Math.min(31, +$('#iC').value || 15));
+      newMap(r, c);
+    };
+    $('#bFill').onclick = () => {g = blank(R, C, 1); g[start.r][start.c] = 0; g[goal.r][goal.c] = 0; draw();};
+    $('#bRand').onclick = () => {
+      const r = Math.max(5, Math.min(25, +$('#iR').value || 11)), c = Math.max(5, Math.min(31, +$('#iC').value || 15));
+      R = r; C = c; randomMap();
+    };
+    $('#bApply').onclick = () => {
+      const rows = txt.value.trim().split('\n').map(l => l.trim().split(/[\s,]*/).join('').split('')).filter(r => r.length);
+      if (!rows.length || rows.some(r => r.length !== rows[0].length || r.some(v => v !== '0' && v !== '1'))) {
+        msg.textContent = 'Texto inválido: use só 0 e 1, mesmo tamanho por linha.'; return;
+      }
+      R = rows.length; C = rows[0].length; g = rows.map(r => r.map(Number));
+      $('#iR').value = R; $('#iC').value = C;
+      const fit = p => ({r: Math.min(p.r, R - 1), c: Math.min(p.c, C - 1)});
+      start = fit(start); goal = fit(goal);
+      if (start.r === goal.r && start.c === goal.c) goal = {r: R - 1, c: C - 1};
+      g[start.r][start.c] = 0; g[goal.r][goal.c] = 0;
+      msg.textContent = 'Mapa aplicado'; build();
+    };
+    $('#bCopy').onclick = async () => {
+      try {await navigator.clipboard.writeText(txt.value); msg.textContent = 'Copiado!';}
+      catch (e) {txt.select(); msg.textContent = 'Selecione e copie (Ctrl+C)';}
+    };
+    window.addEventListener('resize', build);
+
+    newMap(11, 15);
+  </script>
+</body>
+
+</html>
